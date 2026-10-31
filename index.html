@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Klar</title>
+<meta name="description" content="Wetter ohne Werbung: Vorhersage, Regenradar, DWD-Warnungen und Hinweise für die Hasen.">
+<meta name="theme-color" content="#0b1633">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Klar">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
+<link rel="preconnect" href="https://api.brightsky.dev" crossorigin>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-gps" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 1.5v3.5M12 19v3.5M1.5 12H5M19 12h3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20.5 3.5v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7.5 5.5h3v13h-3zM13.5 5.5h3v13h-3z" fill="currentColor"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M7 9.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-rabbit" viewBox="0 0 32 32"><g fill="currentColor"><ellipse cx="9" cy="7.5" rx="2" ry="6" transform="rotate(-14 9 7.5)"/><ellipse cx="13.2" cy="7" rx="2" ry="6" transform="rotate(8 13.2 7)"/><circle cx="11.2" cy="15.5" r="5"/><ellipse cx="19" cy="22.5" rx="9" ry="6.8"/><circle cx="27.6" cy="21" r="2.2"/></g><circle cx="9.4" cy="14.8" r="1" fill="#0b1633"/></symbol>
+  </defs>
+</svg>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="scrim" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="top">
+    <button id="placeBtn" class="place-btn" aria-haspopup="dialog" aria-controls="placesDlg">
+      <span class="place-name" id="placeName">Klar</span>
+      <span class="place-sub" id="placeSub">Orte verwalten</span>
+      <svg class="place-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+    </button>
+    <div class="top-actions">
+      <button id="gpsBtn" class="icon-btn" title="Aktuellen Standort verwenden" aria-label="Aktuellen Standort verwenden"><svg aria-hidden="true"><use href="#i-gps"/></svg></button>
+      <button id="refreshBtn" class="icon-btn" title="Aktualisieren" aria-label="Aktualisieren"><svg aria-hidden="true"><use href="#i-refresh"/></svg></button>
+    </div>
+  </header>
+
+  <nav class="chips" id="placeChips" aria-label="Gespeicherte Orte"></nav>
+
+  <main class="layout">
+    <div class="col-now">
+      <section class="hero" id="hero" aria-live="polite">
+        <p class="hero-loading">Lade Wetter …</p>
+      </section>
+      <section class="panel nowcast" id="nowcast" hidden></section>
+      <section id="warnings" class="warnings"></section>
+      <section class="panel rabbits" id="rabbits" hidden></section>
+    </div>
+
+    <div class="col-detail">
+      <div class="tabs" role="tablist" aria-label="Ansicht">
+        <button role="tab" id="t-hours" aria-controls="tab-hours" aria-selected="true">48 Stunden</button>
+        <button role="tab" id="t-days" aria-controls="tab-days" aria-selected="false" tabindex="-1">16 Tage</button>
+        <button role="tab" id="t-radar" aria-controls="tab-radar" aria-selected="false" tabindex="-1">Radar</button>
+      </div>
+      <section class="panel tabpanel" id="tab-hours" role="tabpanel" aria-labelledby="t-hours"></section>
+      <section class="panel tabpanel" id="tab-days" role="tabpanel" aria-labelledby="t-days" hidden></section>
+      <section class="panel tabpanel radar-panel" id="tab-radar" role="tabpanel" aria-labelledby="t-radar" hidden>
+        <div class="radar-wrap">
+          <div id="map" aria-label="Regenradar-Karte"></div>
+          <div class="radar-stamp" aria-live="off"><b id="rTime">–</b><span id="rKind"></span></div>
+        </div>
+        <div class="radar-ctrl">
+          <button id="rPlay" class="icon-btn solid" aria-label="Abspielen"><svg aria-hidden="true"><use href="#i-play"/></svg></button>
+          <div class="radar-track">
+            <input type="range" id="rSlider" min="0" max="18" value="6" step="1" aria-label="Zeitpunkt">
+            <div class="radar-ticks" id="rTicks" aria-hidden="true"></div>
+          </div>
+          <button id="rNow" class="text-btn">Jetzt</button>
+        </div>
+        <div class="legend" aria-label="Legende Niederschlag">
+          <span><i style="--c:#33FFFF"></i>Niesel</span>
+          <span><i style="--c:#4DB31B"></i>leicht</span>
+          <span><i style="--c:#CCE601"></i>mäßig</span>
+          <span><i style="--c:#FFC401"></i>stark</span>
+          <span><i style="--c:#FE0000"></i>sehr stark</span>
+        </div>
+        <p class="src" id="rNote">Radar des Deutschen Wetterdienstes: Messung der letzten Stunde und Vorhersage für die nächsten zwei Stunden. Abdeckung Deutschland und Grenzgebiete.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <p>Wetter ohne Werbung und ohne Tracking.</p>
+    <p>Daten: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> über <a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a>, Orte: Open-Meteo Geocoding und <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.</p>
+    <p id="footStand"></p>
+  </footer>
+</div>
+
+<dialog id="placesDlg" class="sheet" aria-labelledby="placesTitle">
+  <div class="sheet-head">
+    <h2 id="placesTitle">Orte</h2>
+    <button class="icon-btn" id="placesClose" aria-label="Schließen"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+  </div>
+  <label class="search">
+    <svg aria-hidden="true"><use href="#i-search"/></svg>
+    <input id="placeSearch" type="search" placeholder="Ort suchen, z. B. Michelstadt" autocomplete="off" enterkeyhint="search" aria-label="Ort suchen">
+  </label>
+  <ul class="results" id="placeResults" aria-label="Suchergebnisse"></ul>
+  <button class="wide-btn" id="placeGps"><svg aria-hidden="true"><use href="#i-gps"/></svg>Aktuellen Standort verwenden</button>
+  <h3 class="sheet-sub">Gespeichert</h3>
+  <ul class="saved" id="placeSaved"></ul>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
